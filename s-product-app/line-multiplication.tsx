@@ -1,348 +1,128 @@
-// import React, { useState, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
-// // Configuration for colors and styles
-// const THEMES = {
-//   '+': { bg: '#FEF9C3', accent: '#FACC15', text: '#A16207', shadow: '#CA8A04', icon: '➕' },
-//   '-': { bg: '#DBEAFE', accent: '#60A5FA', text: '#1E40AF', shadow: '#2563EB', icon: '➖' },
-//   '*': { bg: '#F3E8FF', accent: '#C084FC', text: '#6B21A8', shadow: '#9333EA', icon: '✖️' },
-//   '/': { bg: '#DCFCE7', accent: '#4ADE80', text: '#166534', shadow: '#16A34A', icon: '➗' },
-// };
+interface Point { x: number; y: number; }
+interface Line { start: Point; end: Point; set: 'A' | 'B'; }
 
-// const Asmd = () => {
-//   const [level, setLevel] = useState(1);
-//   const [operation, setOperation] = useState<keyof typeof THEMES>('+');
-//   const [currentTest, setCurrentTest] = useState(1);
-//   const [score, setScore] = useState(0);
-//   const [userInput, setUserInput] = useState('');
-//   const [isGameOver, setIsGameOver] = useState(false);
-//   const [problem, setProblem] = useState({ a: 0, b: 0, answer: 0 });
-//   const [isShaking, setIsShaking] = useState(false); // For wrong answers
+const VisualMultiplication: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [lines, setLines] = useState<Line[]>([]);
+  const [activeSet, setActiveSet] = useState<'A' | 'B'>('A');
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [startPt, setStartPt] = useState<Point | null>(null);
+  const [calculation, setCalculation] = useState<{ valA: number, valB: number, result: number } | null>(null);
 
-//   const theme = THEMES[operation];
-
-//   const generateProblem = useCallback(() => {
-//     const ranges = [{min:1, max:5}, {min:5, max:20}, {min:10, max:100}, {min:50, max:500}];
-//     const { min, max } = ranges[level - 1];
-//     let a = Math.floor(Math.random() * (max - min + 1)) + min;
-//     let b = Math.floor(Math.random() * (max - min + 1)) + min;
+  // Grouping Logic: Detects gaps between lines to identify digits (e.g., 2 lines then a gap then 1 line = 21)
+  const calculateDigits = (relevantLines: Line[], axis: 'y' | 'x') => {
+    if (relevantLines.length === 0) return 0;
     
-//     let finalA = a, finalB = b, finalAns = 0;
-//     if (operation === '+') finalAns = a + b;
-//     if (operation === '-') { finalA = Math.max(a, b); finalB = Math.min(a, b); finalAns = finalA - finalB; }
-//     if (operation === '*') finalAns = a * b;
-//     if (operation === '/') { finalAns = a; finalA = a * b; finalB = b; }
+    // Sort lines by their position on the canvas
+    const sortedPositions = relevantLines
+      .map(l => (l.start[axis] + l.end[axis]) / 2)
+      .sort((a, b) => a - b);
 
-//     setProblem({ a: finalA, b: finalB, answer: finalAns });
-//   }, [level, operation]);
+    const groups: number[] = [];
+    let currentGroupCount = 1;
+    const GAP_THRESHOLD = 60; // Pixels required to consider it a "new digit"
 
-//   useEffect(() => { generateProblem(); }, [generateProblem]);
-
-//   const handleSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-//     if (parseInt(userInput) === problem.answer) {
-//       setScore(s => s + 1);
-//       nextStep();
-//     } else {
-//       // Trigger Shake Animation
-//       setIsShaking(true);
-//       setTimeout(() => setIsShaking(false), 500);
-//     }
-//   };
-
-//   const nextStep = () => {
-//     if (currentTest < 5) {
-//       setCurrentTest(t => t + 1);
-//       setUserInput('');
-//       generateProblem();
-//     } else {
-//       setIsGameOver(true);
-//     }
-//   };
-
-//   return (
-//     <div style={{ 
-//       backgroundColor: theme.bg, 
-//       minHeight: '100vh', 
-//       display: 'flex', 
-//       alignItems: 'center', 
-//       justifyContent: 'center',
-//       transition: 'all 0.5s ease',
-//       fontFamily: '"Comic Sans MS", "Chalkboard SE", cursive' 
-//     }}>
-      
-//       {/* Main Card */}
-//       <div style={{
-//         background: 'white',
-//         padding: '2rem',
-//         borderRadius: '40px',
-//         boxShadow: `0 20px 0 ${theme.shadow}44, 0 30px 60px rgba(0,0,0,0.1)`,
-//         width: '100%',
-//         maxWidth: '450px',
-//         textAlign: 'center',
-//         border: '8px solid white'
-//       }}>
-        
-//         {/* Header Stats */}
-//         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-//           <div style={{ background: '#f0f0f0', padding: '5px 15px', borderRadius: '20px', fontWeight: 'bold' }}>
-//             Level {level} 🎖️
-//           </div>
-//           <div style={{ color: '#22c55e', fontWeight: '900', fontSize: '1.2rem' }}>
-//             Score: {score} ✨
-//           </div>
-//         </div>
-
-//         {/* Tab Buttons */}
-//         <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
-//           {Object.keys(THEMES).map((op) => (
-//             <button
-//               key={op}
-//               onClick={() => { setOperation(op as any); setCurrentTest(1); setScore(0); }}
-//               style={{
-//                 flex: 1,
-//                 border: 'none',
-//                 padding: '15px',
-//                 borderRadius: '20px',
-//                 cursor: 'pointer',
-//                 fontSize: '1.5rem',
-//                 backgroundColor: operation === op ? THEMES[op as keyof typeof THEMES].accent : '#f5f5f5',
-//                 transform: operation === op ? 'scale(1.1) translateY(-5px)' : 'none',
-//                 boxShadow: operation === op ? `0 8px 0 ${THEMES[op as keyof typeof THEMES].shadow}` : 'none',
-//                 transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-//               }}
-//             >
-//               {THEMES[op as keyof typeof THEMES].icon}
-//             </button>
-//           ))}
-//         </div>
-
-//         {!isGameOver ? (
-//           <div className={isShaking ? 'shake-animation' : ''}>
-//             <p style={{ color: '#aaa', fontWeight: 'bold', textTransform: 'uppercase' }}>
-//               Task {currentTest} of 5
-//             </p>
-            
-//             <div style={{ fontSize: '5rem', fontWeight: '900', margin: '20px 0', color: '#333' }}>
-//               {problem.a} <span style={{ color: theme.accent }}>{operation}</span> {problem.b}
-//             </div>
-
-//             <form onSubmit={handleSubmit}>
-//               <input
-//                 type="number"
-//                 value={userInput}
-//                 autoFocus
-//                 onChange={(e) => setUserInput(e.target.value)}
-//                 placeholder="?"
-//                 style={{
-//                   width: '80%',
-//                   textAlign: 'center',
-//                   fontSize: '3rem',
-//                   padding: '20px',
-//                   borderRadius: '30px',
-//                   border: `5px solid ${isShaking ? '#ef4444' : theme.bg}`,
-//                   outline: 'none',
-//                   backgroundColor: '#f9f9f9',
-//                   transition: 'border 0.3s'
-//                 }}
-//               />
-//               <button 
-//                 type="submit"
-//                 style={{
-//                   display: 'block',
-//                   width: '100%',
-//                   marginTop: '25px',
-//                   padding: '20px',
-//                   borderRadius: '25px',
-//                   border: 'none',
-//                   backgroundColor: theme.accent,
-//                   color: 'white',
-//                   fontSize: '1.8rem',
-//                   fontWeight: '900',
-//                   cursor: 'pointer',
-//                   boxShadow: `0 10px 0 ${theme.shadow}`,
-//                   transition: 'all 0.1s'
-//                 }}
-//                 onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(5px)', e.currentTarget.style.boxShadow = 'none')}
-//                 onMouseUp={(e) => (e.currentTarget.style.transform = 'none', e.currentTarget.style.boxShadow = `0 10px 0 ${theme.shadow}`)}
-//               >
-//                 CHECK! 🚀
-//               </button>
-//             </form>
-//           </div>
-//         ) : (
-//           <div style={{ padding: '20px' }}>
-//             <h2 style={{ fontSize: '3rem', marginBottom: '10px' }}>🏆 Done!</h2>
-//             <p style={{ fontSize: '1.5rem', color: '#666' }}>You earned {score * 10} points!</p>
-//             <button 
-//               onClick={() => { setIsGameOver(false); setScore(0); setCurrentTest(1); }}
-//               style={{
-//                 marginTop: '30px',
-//                 padding: '15px 40px',
-//                 borderRadius: '20px',
-//                 border: 'none',
-//                 backgroundColor: '#333',
-//                 color: 'white',
-//                 fontSize: '1.2rem',
-//                 cursor: 'pointer'
-//               }}
-//             >
-//               Play Again
-//             </button>
-//           </div>
-//         )}
-//       </div>
-
-//       <style>{`
-//         @keyframes shake {
-//           0% { transform: translateX(0); }
-//           25% { transform: translateX(-10px); }
-//           50% { transform: translateX(10px); }
-//           75% { transform: translateX(-10px); }
-//           100% { transform: translateX(0); }
-//         }
-//         .shake-animation {
-//           animation: shake 0.4s ease-in-out;
-//         }
-//       `}</style>
-//     </div>
-//   );
-// };
-
-// export default Asmd;
-
-
-
-
-import React, { useState, useEffect, useCallback } from 'react';
-import { AgGridReact } from 'ag-grid-react';
-import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
-
-// Register AG Grid Modules
-ModuleRegistry.registerModules([AllCommunityModule]);
-
-const THEMES = {
-  '+': { bg: '#FEF9C3', accent: '#FACC15', text: '#A16207', shadow: '#CA8A04', icon: '➕' },
-  '-': { bg: '#DBEAFE', accent: '#60A5FA', text: '#1E40AF', shadow: '#2563EB', icon: '➖' },
-  '*': { bg: '#F3E8FF', accent: '#C084FC', text: '#6B21A8', shadow: '#9333EA', icon: '✖️' },
-  '/': { bg: '#DCFCE7', accent: '#4ADE80', text: '#166534', shadow: '#16A34A', icon: '➗' },
-};
-
-const Asmd = () => {
-  // Game Logic State
-  const [level, setLevel] = useState(1);
-  const [operation, setOperation] = useState<keyof typeof THEMES>('+');
-  const [currentTest, setCurrentTest] = useState(1);
-  const [score, setScore] = useState(0);
-  const [userInput, setUserInput] = useState('');
-  const [isGameOver, setIsGameOver] = useState(false);
-  const [problem, setProblem] = useState({ a: 0, b: 0, answer: 0 });
-
-  // GRID STATE: To store history of games
-  const [history, setHistory] = useState<any[]>([]);
-
-  // AG Grid Column Definitions
-  const columnDefs = [
-    { field: "gameNum", headerName: "#", width: 70 },
-    { field: "op", headerName: "Type", width: 90, cellStyle: { fontWeight: 'bold' } },
-    { field: "level", headerName: "Lvl", width: 80 },
-    { field: "finalScore", headerName: "Result", flex: 1, 
-      cellRenderer: (p: any) => `⭐ ${p.value} / 5` 
+    for (let i = 1; i < sortedPositions.length; i++) {
+      if (sortedPositions[i] - sortedPositions[i - 1] > GAP_THRESHOLD) {
+        groups.push(currentGroupCount);
+        currentGroupCount = 1;
+      } else {
+        currentGroupCount++;
+      }
     }
-  ];
-
-  const generateProblem = useCallback(() => {
-    const ranges = [{min:1, max:5}, {min:5, max:20}, {min:10, max:100}, {min:50, max:500}];
-    const { min, max } = ranges[level - 1];
-    let a = Math.floor(Math.random() * (max - min + 1)) + min;
-    let b = Math.floor(Math.random() * (max - min + 1)) + min;
+    groups.push(currentGroupCount);
     
-    let finalA = a, finalB = b, finalAns = 0;
-    if (operation === '+') finalAns = a + b;
-    if (operation === '-') { finalA = Math.max(a, b); finalB = Math.min(a, b); finalAns = finalA - finalB; }
-    if (operation === '*') finalAns = a * b;
-    if (operation === '/') { finalAns = a; finalA = a * b; finalB = b; }
-
-    setProblem({ a: finalA, b: finalB, answer: finalAns });
-  }, [level, operation]);
-
-  useEffect(() => { generateProblem(); }, [generateProblem]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const isCorrect = parseInt(userInput) === problem.answer;
-    const newScore = isCorrect ? score + 1 : score;
-    
-    if (isCorrect) setScore(newScore);
-
-    if (currentTest < 5) {
-      setCurrentTest(t => t + 1);
-      setUserInput('');
-      generateProblem();
-    } else {
-      // GAME OVER: Save to Grid History
-      const newEntry = {
-        gameNum: history.length + 1,
-        op: operation,
-        level: level,
-        finalScore: newScore
-      };
-      setHistory([newEntry, ...history]); // Add to top of grid
-      setIsGameOver(true);
-    }
+    // Convert array of digits [2, 1] into the number 21
+    return parseInt(groups.join(''), 10);
   };
 
-  const theme = THEMES[operation];
+  const handleCalculate = () => {
+    const setALines = lines.filter(l => l.set === 'A'); // Horizontal-ish
+    const setBLines = lines.filter(l => l.set === 'B'); // Vertical-ish
+
+    const valA = calculateDigits(setALines, 'y');
+    const valB = calculateDigits(setBLines, 'x');
+
+    setCalculation({ valA, valB, result: valA * valB });
+  };
+
+  const draw = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    lines.forEach(l => {
+      ctx.beginPath();
+      ctx.moveTo(l.start.x, l.start.y);
+      ctx.lineTo(l.end.x, l.end.y);
+      ctx.strokeStyle = l.set === 'A' ? '#3b82f6' : '#ef4444';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    });
+  };
+
+  useEffect(() => { draw(); }, [lines]);
+
+  const onStart = (e: any) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    setStartPt({ x, y });
+    setIsDrawing(true);
+    setCalculation(null);
+  };
+
+  const onEnd = (e: any) => {
+    if (!isDrawing || !startPt) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const x = (e.changedTouches ? e.changedTouches[0].clientX : e.clientX) - (rect?.left || 0);
+    const y = (e.changedTouches ? e.changedTouches[0].clientY : e.clientY) - (rect?.top || 0);
+
+    setLines([...lines, { start: startPt, end: { x, y }, set: activeSet }]);
+    setIsDrawing(false);
+  };
 
   return (
-    <div style={{ backgroundColor: theme.bg, minHeight: '100vh', padding: '40px' }}>
-      <div style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-        
-        {/* LEFT SIDE: The Game Card */}
-        <div style={{ background: 'white', padding: '30px', borderRadius: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
-          {!isGameOver ? (
-            <div>
-              <div style={{ display: 'flex', gap: '5px', marginBottom: '20px' }}>
-                {Object.keys(THEMES).map(op => (
-                  <button key={op} onClick={() => setOperation(op as any)} style={{ flex: 1, border: 'none', background: operation === op ? THEMES[op as keyof typeof THEMES].accent : '#eee', padding: '10px', borderRadius: '10px', cursor: 'pointer' }}>
-                    {THEMES[op as keyof typeof THEMES].icon}
-                  </button>
-                ))}
-              </div>
-              <h2 style={{ fontSize: '4rem', margin: '20px 0' }}>{problem.a} {operation} {problem.b}</h2>
-              <form onSubmit={handleSubmit}>
-                <input 
-                  type="number" 
-                  value={userInput} 
-                  onChange={e => setUserInput(e.target.value)} 
-                  style={{ fontSize: '2rem', textAlign: 'center', padding: '15px', borderRadius: '15px', border: `3px solid ${theme.accent}` }}
-                  autoFocus 
-                />
-                <button type="submit" style={{ width: '100%', marginTop: '15px', padding: '15px', borderRadius: '15px', border: 'none', background: theme.accent, color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>CHECK</button>
-              </form>
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center' }}>
-              <h2 style={{ fontSize: '2.5rem' }}>Final: {score}/5</h2>
-              <button onClick={() => {setIsGameOver(false); setScore(0); setCurrentTest(1); setUserInput('');}} style={{ padding: '10px 20px', borderRadius: '10px', border: 'none', background: '#333', color: 'white', cursor: 'pointer' }}>Try Again</button>
-            </div>
-          )}
-        </div>
+    <div style={{ textAlign: 'center', padding: '20px', fontFamily: 'Arial' }}>
+      <h2>Place-Value Line Multiplication</h2>
+      <p>Draw horizontal lines for <b>Set A</b> (leave gaps for tens/units). Then draw vertical for <b>Set B</b>.</p>
+      
+      <div style={{ marginBottom: '15px' }}>
+        <button onClick={() => setActiveSet('A')} style={{...btn, border: activeSet === 'A' ? '3px solid black' : 'none', backgroundColor: '#3b82f6', color: 'white'}}>Set A (Horizontal)</button>
+        <button onClick={() => setActiveSet('B')} style={{...btn, border: activeSet === 'B' ? '3px solid black' : 'none', backgroundColor: '#ef4444', color: 'white', marginLeft: '10px'}}>Set B (Vertical)</button>
+        <button onClick={() => {setLines([]); setCalculation(null);}} style={{...btn, marginLeft: '20px'}}>Clear</button>
+      </div>
 
-        {/* RIGHT SIDE: The Table Grid (Scoreboard) */}
-        <div style={{ background: 'white', padding: '20px', borderRadius: '30px', display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ margin: '0 0 15px 0', color: '#666' }}>🏆 Scoreboard History</h3>
-          <div className="ag-theme-quartz" style={{ height: '350px', width: '100%' }}>
-            <AgGridReact
-              rowData={history}
-              columnDefs={columnDefs}
-              defaultColDef={{ resizable: true }}
-            />
+      <canvas
+        ref={canvasRef}
+        width={800} height={450}
+        onMouseDown={onStart} onMouseUp={onEnd}
+        onTouchStart={onStart} onTouchEnd={onEnd}
+        style={{ border: '2px solid #333', borderRadius: '8px', cursor: 'crosshair', touchAction: 'none', backgroundColor: '#fff' }}
+      />
+
+      <div style={{ marginTop: '20px' }}>
+        {lines.length > 0 && !calculation && (
+          <button onClick={handleCalculate} style={{...btn, backgroundColor: '#10b981', color: 'white', padding: '15px 30px', fontSize: '1.2rem'}}>
+            Calculate Value
+          </button>
+        )}
+
+        {calculation && (
+          <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#111' }}>
+            {calculation.valA} × {calculation.valB} = <span style={{ color: '#10b981' }}>{calculation.result}</span>
           </div>
-        </div>
-
+        )}
       </div>
     </div>
   );
 };
 
-export default Asmd;
+const btn = { padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' as const };
+
+export default VisualMultiplication;
